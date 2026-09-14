@@ -1,93 +1,140 @@
 name: Build Mapie x86
 
 on:
-  push:
-    branches:
-      - master
-
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+env:
+  BUILD_TYPE: Release
+  QT_VERSION: "6.8.3"
+
 jobs:
-  build-windows-x86:
+  build_x86:
+    name: Build Mapie - Windows x86
     runs-on: windows-2022
 
     steps:
-      - name: Checkout
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ------------------------------------------------------------
+      # Show runner information
+      # ------------------------------------------------------------
+      - name: Show environment
+        shell: pwsh
+        run: |
+          Write-Host "Windows:"
+          Get-CimInstance Win32_OperatingSystem |
+            Select-Object Caption, Version, OSArchitecture
+
+          Write-Host ""
+          Write-Host "CMake:"
+          cmake --version
+
+      # ------------------------------------------------------------
+      # Install Qt
+      #
+      # IMPORTANT:
+      # The Qt package architecture must actually exist for the
+      # selected Qt version.
+      # ------------------------------------------------------------
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: "6.8.3"
+          version: ${{ env.QT_VERSION }}
           host: windows
           target: desktop
-          arch: win32_msvc2022
-          modules: >
-            qtlocation
-            qtpositioning
+          arch: win64_msvc2022_64
           cache: true
+          set-env: true
 
-      - name: Setup MSVC
+      # ------------------------------------------------------------
+      # Configure MSVC for x86
+      # ------------------------------------------------------------
+      - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
 
+      # ------------------------------------------------------------
+      # Verify MSVC
+      # ------------------------------------------------------------
+      - name: Check MSVC
+        shell: cmd
+        run: |
+          where cl
+          where link
+          cl
+
+      # ------------------------------------------------------------
+      # Verify Qt
+      # ------------------------------------------------------------
+      - name: Check Qt
+        shell: cmd
+        run: |
+          where qmake
+          qmake -v
+
+      # ------------------------------------------------------------
+      # Show Qt environment
+      # ------------------------------------------------------------
+      - name: Show Qt environment
+        shell: pwsh
+        run: |
+          Write-Host "QT_ROOT_DIR = $env:QT_ROOT_DIR"
+          Write-Host "Qt6_DIR     = $env:Qt6_DIR"
+          Write-Host "PATH:"
+          $env:PATH -split ";" |
+            Where-Object { $_ -match "Qt" } |
+            ForEach-Object { Write-Host $_ }
+
+      # ------------------------------------------------------------
+      # Configure CMake
+      # ------------------------------------------------------------
       - name: Configure CMake
+        shell: cmd
+        run: |
+          cmake ^
+            -S . ^
+            -B build ^
+            -G "Visual Studio 17 2022" ^
+            -A Win32 ^
+            -DCMAKE_BUILD_TYPE=Release
+
+      # ------------------------------------------------------------
+      # Build
+      # ------------------------------------------------------------
+      - name: Build Mapie
+        shell: cmd
+        run: |
+          cmake ^
+            --build build ^
+            --config Release ^
+            --parallel 2
+
+      # ------------------------------------------------------------
+      # Show generated files
+      # ------------------------------------------------------------
+      - name: List build output
         shell: pwsh
         run: |
-          cmake `
-            -S . `
-            -B build `
-            -G "Visual Studio 17 2022" `
-            -A Win32
+          Write-Host "Build directory:"
+          Get-ChildItem -Path build -Recurse -File |
+            Select-Object FullName
 
-      - name: Build
-        shell: pwsh
-        run: |
-          cmake `
-            --build build `
-            --config Release `
-            --parallel
-
-      - name: Check executable
-        shell: pwsh
-        run: |
-          if (!(Test-Path "build\Release\appMapie.exe")) {
-            Write-Error "appMapie.exe was not found!"
-            exit 1
-          }
-
-      - name: Deploy Qt
-        shell: pwsh
-        run: |
-          New-Item `
-            -ItemType Directory `
-            -Force `
-            -Path package
-
-          windeployqt `
-            --release `
-            --qmldir . `
-            --dir package `
-            "build\Release\appMapie.exe"
-
-      - name: Copy executable
-        shell: pwsh
-        run: |
-          Copy-Item `
-            "build\Release\appMapie.exe" `
-            "package\appMapie.exe"
-
-      - name: Create ZIP
-        shell: pwsh
-        run: |
-          Compress-Archive `
-            -Path "package\*" `
-            -DestinationPath "Mapie-Windows-x86.zip" `
-            -Force
-
-      - name: Upload artifact
+      # ------------------------------------------------------------
+      # Upload build
+      # ------------------------------------------------------------
+      - name: Upload Mapie
         uses: actions/upload-artifact@v4
         with:
           name: Mapie-Windows-x86
-          path: Mapie-Windows-x86.zip
+          path: |
+            build/Release/*.exe
+            build/Release/*.dll
+          if-no-files-found: warn
