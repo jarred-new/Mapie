@@ -1,0 +1,93 @@
+name: Build Mapie x86
+
+on:
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:
+
+jobs:
+  build-windows-x86:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.10.0"
+          host: windows
+          target: desktop
+          arch: win32_msvc2022
+          modules: >
+            qtlocation
+            qtpositioning
+          cache: true
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake `
+            -S . `
+            -B build `
+            -G "Visual Studio 17 2022" `
+            -A Win32
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake `
+            --build build `
+            --config Release `
+            --parallel
+
+      - name: Check executable
+        shell: pwsh
+        run: |
+          if (!(Test-Path "build\Release\appMapie.exe")) {
+            Write-Error "appMapie.exe was not found!"
+            exit 1
+          }
+
+      - name: Deploy Qt
+        shell: pwsh
+        run: |
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path package
+
+          windeployqt `
+            --release `
+            --qmldir . `
+            --dir package `
+            "build\Release\appMapie.exe"
+
+      - name: Copy executable
+        shell: pwsh
+        run: |
+          Copy-Item `
+            "build\Release\appMapie.exe" `
+            "package\appMapie.exe"
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "package\*" `
+            -DestinationPath "Mapie-Windows-x86.zip" `
+            -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mapie-Windows-x86
+          path: Mapie-Windows-x86.zip
