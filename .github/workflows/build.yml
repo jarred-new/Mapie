@@ -18,7 +18,7 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.11.0'              # Target Qt version
+        version: '6.10'              # Target Qt version
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2022'       # Uses Visual Studio 2022 compiler pre-installed on the runner
