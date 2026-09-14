@@ -7,42 +7,64 @@ permissions:
   contents: read
 
 env:
-  BUILD_TYPE: Release
   QT_VERSION: "6.8.3"
+  BUILD_TYPE: Release
 
 jobs:
-  build_x86:
-    name: Build Mapie - Windows x86
+  build-x86:
+    name: Mapie Windows x86
     runs-on: windows-2022
 
     steps:
-      # ------------------------------------------------------------
+
+      # ============================================================
       # Checkout
-      # ------------------------------------------------------------
+      # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ------------------------------------------------------------
-      # Show runner information
-      # ------------------------------------------------------------
-      - name: Show environment
-        shell: pwsh
-        run: |
-          Write-Host "Windows:"
-          Get-CimInstance Win32_OperatingSystem |
-            Select-Object Caption, Version, OSArchitecture
 
-          Write-Host ""
-          Write-Host "CMake:"
+      # ============================================================
+      # Python x86
+      # ============================================================
+      - name: Setup Python x86
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x86
+
+
+      # ============================================================
+      # Verify Python
+      # ============================================================
+      - name: Verify Python x86
+        shell: cmd
+        run: |
+          echo ========================================
+          echo Python
+          echo ========================================
+
+          python --version
+
+          echo.
+          python -c "import platform; print('Architecture:', platform.architecture()[0])"
+
+          echo.
+          where python
+
+
+      # ============================================================
+      # Show CMake
+      # ============================================================
+      - name: Verify CMake
+        shell: cmd
+        run: |
           cmake --version
 
-      # ------------------------------------------------------------
+
+      # ============================================================
       # Install Qt
-      #
-      # IMPORTANT:
-      # The Qt package architecture must actually exist for the
-      # selected Qt version.
-      # ------------------------------------------------------------
+      # ============================================================
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -50,53 +72,59 @@ jobs:
           host: windows
           target: desktop
           arch: win64_msvc2022_64
+          modules: qtlocation
           cache: true
           set-env: true
 
-      # ------------------------------------------------------------
-      # Configure MSVC for x86
-      # ------------------------------------------------------------
+
+      # ============================================================
+      # Verify Qt
+      # ============================================================
+      - name: Verify Qt
+        shell: cmd
+        run: |
+          echo ========================================
+          echo Qt
+          echo ========================================
+
+          echo QT_ROOT_DIR=%QT_ROOT_DIR%
+
+          echo.
+          where qmake
+
+          echo.
+          qmake -v
+
+
+      # ============================================================
+      # Setup MSVC x86
+      # ============================================================
       - name: Setup MSVC x86
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x86
 
-      # ------------------------------------------------------------
-      # Verify MSVC
-      # ------------------------------------------------------------
-      - name: Check MSVC
+
+      # ============================================================
+      # Verify MSVC x86
+      # ============================================================
+      - name: Verify MSVC x86
         shell: cmd
         run: |
+          echo ========================================
+          echo MSVC x86
+          echo ========================================
+
           where cl
-          where link
+
+          echo.
           cl
 
-      # ------------------------------------------------------------
-      # Verify Qt
-      # ------------------------------------------------------------
-      - name: Check Qt
-        shell: cmd
-        run: |
-          where qmake
-          qmake -v
 
-      # ------------------------------------------------------------
-      # Show Qt environment
-      # ------------------------------------------------------------
-      - name: Show Qt environment
-        shell: pwsh
-        run: |
-          Write-Host "QT_ROOT_DIR = $env:QT_ROOT_DIR"
-          Write-Host "Qt6_DIR     = $env:Qt6_DIR"
-          Write-Host "PATH:"
-          $env:PATH -split ";" |
-            Where-Object { $_ -match "Qt" } |
-            ForEach-Object { Write-Host $_ }
-
-      # ------------------------------------------------------------
+      # ============================================================
       # Configure CMake
-      # ------------------------------------------------------------
-      - name: Configure CMake
+      # ============================================================
+      - name: Configure CMake x86
         shell: cmd
         run: |
           cmake ^
@@ -104,12 +132,14 @@ jobs:
             -B build ^
             -G "Visual Studio 17 2022" ^
             -A Win32 ^
+            -DCMAKE_PREFIX_PATH="%QT_ROOT_DIR%" ^
             -DCMAKE_BUILD_TYPE=Release
 
-      # ------------------------------------------------------------
+
+      # ============================================================
       # Build
-      # ------------------------------------------------------------
-      - name: Build Mapie
+      # ============================================================
+      - name: Build Mapie x86
         shell: cmd
         run: |
           cmake ^
@@ -117,24 +147,101 @@ jobs:
             --config Release ^
             --parallel 2
 
-      # ------------------------------------------------------------
-      # Show generated files
-      # ------------------------------------------------------------
-      - name: List build output
+
+      # ============================================================
+      # Find executable
+      # ============================================================
+      - name: Find executable
         shell: pwsh
         run: |
-          Write-Host "Build directory:"
-          Get-ChildItem -Path build -Recurse -File |
-            Select-Object FullName
+          Write-Host "Searching for Mapie executable..."
 
-      # ------------------------------------------------------------
-      # Upload build
-      # ------------------------------------------------------------
-      - name: Upload Mapie
+          $exe = Get-ChildItem `
+            -Path build `
+            -Recurse `
+            -Filter "*.exe" |
+            Select-Object -First 1
+
+          if (-not $exe) {
+            Write-Host "No executable found."
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "Found:"
+          Write-Host $exe.FullName
+
+
+      # ============================================================
+      # Deploy Qt
+      # ============================================================
+      - name: Deploy Qt
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem `
+            -Path build `
+            -Recurse `
+            -Filter "*.exe" |
+            Select-Object -First 1
+
+          if (-not $exe) {
+            Write-Host "Executable not found."
+            exit 1
+          }
+
+          Write-Host "Deploying Qt..."
+
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" `
+            --release `
+            --qmldir "$env:GITHUB_WORKSPACE" `
+            "$($exe.FullName)"
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+
+      # ============================================================
+      # Package
+      # ============================================================
+      - name: Package Mapie
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem `
+            -Path build `
+            -Recurse `
+            -Filter "*.exe" |
+            Select-Object -First 1
+
+          if (-not $exe) {
+            exit 1
+          }
+
+          $package = "$env:GITHUB_WORKSPACE\Mapie-Windows-x86"
+
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path $package | Out-Null
+
+          Copy-Item `
+            -Path "$($exe.Directory.FullName)\*" `
+            -Destination $package `
+            -Recurse `
+            -Force
+
+          Compress-Archive `
+            -Path "$package\*" `
+            -DestinationPath "$env:GITHUB_WORKSPACE\Mapie-Windows-x86.zip" `
+            -Force
+
+
+      # ============================================================
+      # Upload artifact
+      # ============================================================
+      - name: Upload Mapie x86
         uses: actions/upload-artifact@v4
         with:
           name: Mapie-Windows-x86
-          path: |
-            build/Release/*.exe
-            build/Release/*.dll
-          if-no-files-found: warn
+          path: Mapie-Windows-x86.zip
+          if-no-files-found: error
