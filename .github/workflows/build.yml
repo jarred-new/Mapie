@@ -1,58 +1,58 @@
-name: Build Qt Quick Windows EXE
+name: Build Qt Quick App
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    # 1. Install Qt SDK using the highly reliable 'jurplel/install-qt-action'
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v4
-      with:
-        version: '6.11.1'              # Target Qt version
-        host: 'windows'
-        target: 'desktop'
-        arch: 'win64_msvc2022_64'       # Uses Visual Studio 2022 compiler pre-installed on the runner
-        modules: 'qt5compat qtlocation qtpositioning'         # Add any extra modules if needed (e.g., qtshadertools)
-        cache: true                  # Speeds up subsequent runs
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.11.0"
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          modules: qtmultimedia
+          cache: true
 
-    # 2. Setup the MSVC Developer Command Prompt for the compiler toolchain
-    - name: Setup MSVC Developer Command Prompt
-      uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure
+        run: |
+          cmake -S . -B build `
+            -G "Visual Studio 17 2022" `
+            -A x64
 
-    # 3. Configure the CMake project in Release mode
-    - name: Configure CMake
-      run: |
-        cmake -S . -B build `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_PREFIX_PATH="$env:QT_ROOT_DIR"
+      - name: Build
+        run: |
+          cmake --build build `
+            --config Release `
+            --parallel
 
-    # 4. Build the executable
-    - name: Build Project
-      run: |
-        cmake --build build --config Release
+      - name: Deploy Qt
+        run: |
+          mkdir package
+          windeployqt `
+            --release `
+            --qmldir src `
+            build\Release\appMapie.exe
 
-    # 5. Deploy dependencies (Crucial step to make the EXE work standalone)
-    - name: Run windeployqt
-      run: |
-        # Locate your newly built executable (adjust 'my_qt_app.exe' to your actual target name)
-        $exePath = "build/Release/appMapie.exe"
-        
-        # Run windeployqt with QML scanning enabled so it grabs QtQuick plugins
-        windeployqt --release --qml-dir . --qmldir . $exePath
+          copy build\Release\appMapie.exe package\
 
-    # 6. Upload the fully bundled directory as a GitHub build artifact
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: QtQuick-Windows-Build
-        path: build/Release/
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mapie-Windows-x64
+          path: package/
