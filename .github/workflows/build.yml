@@ -21,7 +21,7 @@ jobs:
         version: '6.11.1'              # Target Qt version
         host: 'windows'
         target: 'desktop'
-        arch: 'win64_msvc2022'       # Uses Visual Studio 2022 compiler pre-installed on the runner
+        arch: 'win64_msvc2022_64'       # Uses Visual Studio 2022 compiler pre-installed on the runner
         modules: 'qt5compat qtlocation qtpositioning'         # Add any extra modules if needed (e.g., qtshadertools)
         cache: true                  # Speeds up subsequent runs
 
