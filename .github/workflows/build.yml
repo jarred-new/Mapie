@@ -3,11 +3,11 @@ name: Build Qt Quick App
 on:
   push:
     branches:
-      - main
+      - master
 
   pull_request:
     branches:
-      - main
+      - master
 
   workflow_dispatch:
 
