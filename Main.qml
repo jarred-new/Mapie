@@ -23,9 +23,31 @@ ApplicationWindow {
     property color accent: darkMode ? "#70d5c5" : "#087f73"
     property color border: darkMode ? "#30424c" : "#dce6e8"
     property var selectedPlace: null
+    property var lightMapType: null
+    property var darkMapType: null
+
+    onDarkModeChanged: updateMapType()
 
     function formatCoordinate(value, positive, negative) {
         return Math.abs(value).toFixed(4) + "° " + (value >= 0 ? positive : negative)
+    }
+
+    function updateMapType() {
+        const mapTypes = mainMap.supportedMapTypes
+        if (mapTypes.length === 0)
+            return
+
+        let lightType = mapTypes[0]
+        let darkType = null
+        for (const mapType of mapTypes) {
+            if (mapType.night)
+                darkType = mapType
+            else if (mapType.mapType === MapType.StreetMap)
+                lightType = mapType
+        }
+        window.lightMapType = lightType
+        window.darkMapType = darkType
+        mainMap.activeMapType = window.darkMode && darkType ? darkType : lightType
     }
 
     Plugin { id: mapPlugin; name: "osm" }
@@ -39,7 +61,7 @@ ApplicationWindow {
             anchors.rightMargin: 22
             spacing: 18
             Label { text: "MAPIE"; color: window.accent; font { family: "Trebuchet MS"; pixelSize: 20; bold: true; letterSpacing: 2 } }
-            Label { text: qsTr("Explore the world"); color: window.muted; font.pixelSize: 13 }
+            Label { id: fileNameHeader; text: qsTr("Untitled.kml"); color: window.muted; font.pixelSize: 13 }
             Item { Layout.fillWidth: true }
             ToolButton { text: "☼"; font.pixelSize: 22; ToolTip.visible: hovered; ToolTip.text: qsTr("Light mode"); onClicked: window.darkMode = false }
             ToolButton { text: "☾"; font.pixelSize: 21; ToolTip.visible: hovered; ToolTip.text: qsTr("Dark mode"); onClicked: window.darkMode = true }
@@ -111,6 +133,8 @@ ApplicationWindow {
                 center: QtPositioning.coordinate(20, 0)
                 zoomLevel: 2.2
                 copyrightsVisible: true
+                Component.onCompleted: window.updateMapType()
+                onSupportedMapTypesChanged: window.updateMapType()
                 MapItemView {
                     model: kmlManager.places
                     delegate: MapQuickItem {
@@ -151,8 +175,30 @@ ApplicationWindow {
         }
     }
 
-    FileDialog { id: openDialog; title: qsTr("Open KML file"); nameFilters: [qsTr("KML files (*.kml)"), qsTr("All files (*)")]; onAccepted: kmlManager.loadKml(selectedFile) }
-    FileDialog { id: saveDialog; title: qsTr("Save KML file"); fileMode: FileDialog.SaveFile; currentFile: "mapie-places.kml"; nameFilters: [qsTr("KML files (*.kml)")]; onAccepted: kmlManager.saveKml(selectedFile) }
+    FileDialog {
+        id: openDialog;
+        title: qsTr("Open KML file");
+        nameFilters: [qsTr("KML files (*.kml)"), qsTr("All files (*)")];
+        onAccepted: {
+            var filename = fileUtils.getFileName(selectedFile);
+            kmlManager.loadKml(selectedFile);
+            fileNameHeader.text = filename;
+        }
+    }
+
+    FileDialog {
+        id: saveDialog;
+        title: qsTr("Save KML file");
+        fileMode: FileDialog.SaveFile;
+        currentFile: "Untitled.kml";
+        nameFilters: [qsTr("KML files (*.kml)")];
+        onAccepted: {
+            var filename = fileUtils.getFileName(selectedFile);
+            kmlManager.saveKml(selectedFile);
+            fileNameHeader.text = filename;
+        }
+    }
+
     Connections {
         target: kmlManager
         function onLastErrorChanged() { if (kmlManager.lastError.length > 0) errorLabel.text = kmlManager.lastError }
