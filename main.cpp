@@ -1,4 +1,5 @@
 #include <QGuiApplication>
+#include <QQmlContext>
 #include <QQmlApplicationEngine>
 
 #include "KmlManager.h"

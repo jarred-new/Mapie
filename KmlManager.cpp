@@ -71,11 +71,11 @@ bool KmlManager::loadKml(const QString &fileName)
                 const double longitude = values.at(0).toDouble(&longitudeOk);
                 const double latitude = values.at(1).toDouble(&latitudeOk);
                 if (longitudeOk && latitudeOk) {
-                    loadedPlaces.append(QVariantMap{
-                        {u"name", currentName.isEmpty() ? tr("Untitled place") : currentName},
-                        {u"latitude", latitude},
-                        {u"longitude", longitude}
-                    });
+                    QVariantMap place;
+                    place.insert(QStringLiteral("name"), currentName.isEmpty() ? tr("Untitled place") : currentName);
+                    place.insert(QStringLiteral("latitude"), latitude);
+                    place.insert(QStringLiteral("longitude"), longitude);
+                    loadedPlaces.append(place);
                 }
             }
             inPlacemark = false;
@@ -104,19 +104,19 @@ bool KmlManager::saveKml(const QString &fileName)
     QXmlStreamWriter xml(&file);
     xml.setAutoFormatting(true);
     xml.writeStartDocument();
-    xml.writeStartElement(u"kml");
-    xml.writeAttribute(u"xmlns", u"http://www.opengis.net/kml/2.2");
-    xml.writeStartElement(u"Document");
-    xml.writeTextElement(u"name", QFileInfo(file).completeBaseName());
+    xml.writeStartElement(QStringLiteral("kml"));
+    xml.writeAttribute(QStringLiteral("xmlns"), QStringLiteral("http://www.opengis.net/kml/2.2"));
+    xml.writeStartElement(QStringLiteral("Document"));
+    xml.writeTextElement(QStringLiteral("name"), QFileInfo(file).completeBaseName());
 
     for (const QVariant &placeVariant : m_places) {
         const QVariantMap place = placeVariant.toMap();
-        xml.writeStartElement(u"Placemark");
-        xml.writeTextElement(u"name", place.value(u"name").toString());
-        xml.writeStartElement(u"Point");
-        xml.writeTextElement(u"coordinates", QStringLiteral("%1,%2,0")
-                                                    .arg(place.value(u"longitude").toDouble(), 0, 'f', 8)
-                                                    .arg(place.value(u"latitude").toDouble(), 0, 'f', 8));
+        xml.writeStartElement(QStringLiteral("Placemark"));
+        xml.writeTextElement(QStringLiteral("name"), place.value(QStringLiteral("name")).toString());
+        xml.writeStartElement(QStringLiteral("Point"));
+        xml.writeTextElement(QStringLiteral("coordinates"), QStringLiteral("%1,%2,0")
+                                       .arg(place.value(QStringLiteral("longitude")).toDouble(), 0, 'f', 8)
+                                       .arg(place.value(QStringLiteral("latitude")).toDouble(), 0, 'f', 8));
         xml.writeEndElement();
         xml.writeEndElement();
     }
@@ -130,11 +130,11 @@ bool KmlManager::saveKml(const QString &fileName)
 
 void KmlManager::addPlace(const QString &name, double latitude, double longitude)
 {
-    m_places.append(QVariantMap{
-        {u"name", name.isEmpty() ? tr("Untitled place") : name},
-        {u"latitude", latitude},
-        {u"longitude", longitude}
-    });
+    QVariantMap place;
+    place.insert(QStringLiteral("name"), name.isEmpty() ? tr("Untitled place") : name);
+    place.insert(QStringLiteral("latitude"), latitude);
+    place.insert(QStringLiteral("longitude"), longitude);
+    m_places.append(place);
     emit placesChanged();
 }
 

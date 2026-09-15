@@ -58,7 +58,6 @@ ApplicationWindow {
             Layout.preferredWidth: 292
             Layout.fillHeight: true
             color: window.panel
-            border.right.color: window.border
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 20
@@ -141,7 +140,7 @@ ApplicationWindow {
             Rectangle {
                 anchors.left: parent.left; anchors.top: parent.top; anchors.margins: 18
                 width: 250; height: 56; radius: 8; color: window.panel; opacity: 0.96
-                Column { anchors.fill: parent; anchors.margins: 10; spacing: 3; Label { text: window.formatCoordinate(mainMap.center.latitude, "N", "S"); color: window.ink; font.pixelSize: 12 }; Label { text: window.formatCoordinate(mainMap.center.longitude, "E", "W") + "  ·  Zoom " + mainMap.zoomLevel.toFixed(1); color: window.muted; font.pixelSize: 11 } }
+                Column { anchors.fill: parent; anchors.margins: 10; spacing: 3; Label { text: window.formatCoordinate(mainMap.center.latitude, "N", "S"); color: window.ink; font.pixelSize: 12 } Label { text: window.formatCoordinate(mainMap.center.longitude, "E", "W") + "  ·  Zoom " + mainMap.zoomLevel.toFixed(1); color: window.muted; font.pixelSize: 11 } }
             }
             Column {
                 anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 18; spacing: 6
