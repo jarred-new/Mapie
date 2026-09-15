@@ -25,6 +25,10 @@ ApplicationWindow {
     property var selectedPlace: null
     property var lightMapType: null
     property var darkMapType: null
+    property string mapMode: "Clean"
+    property var cleanMapType: null
+    property var explorationMapType: null
+    property var everythingMapType: null
 
     onDarkModeChanged: updateMapType()
 
@@ -39,15 +43,42 @@ ApplicationWindow {
 
         let lightType = mapTypes[0]
         let darkType = null
+        let terrainType = null
+        let hikingType = null
+        let satelliteType = null
         for (const mapType of mapTypes) {
             if (mapType.night)
                 darkType = mapType
             else if (mapType.mapType === MapType.StreetMap)
                 lightType = mapType
+            else if (mapType.mapType === MapType.TerrainMap)
+                terrainType = mapType
+            else if (mapType.mapType === MapType.HikingMap)
+                hikingType = mapType
+            else if (mapType.mapType === MapType.SatelliteMap)
+                satelliteType = mapType
         }
         window.lightMapType = lightType
         window.darkMapType = darkType
-        mainMap.activeMapType = window.darkMode && darkType ? darkType : lightType
+        window.cleanMapType = window.darkMode && darkType ? darkType : lightType
+        window.explorationMapType = terrainType || hikingType || lightType
+        window.everythingMapType = satelliteType || lightType
+        window.applyMapMode()
+    }
+
+    function applyMapMode() {
+        if (window.mapMode === "Exploration")
+            mainMap.activeMapType = window.explorationMapType
+        else if (window.mapMode === "Everything")
+            mainMap.activeMapType = window.everythingMapType
+        else
+            mainMap.activeMapType = window.cleanMapType
+    }
+
+    function selectMapMode(mode) {
+        window.mapMode = mode
+        window.applyMapMode()
+        settingsPopup.close()
     }
 
     Plugin { id: mapPlugin; name: "osm" }
@@ -63,6 +94,13 @@ ApplicationWindow {
             Label { text: "MAPIE"; color: window.accent; font { family: "Trebuchet MS"; pixelSize: 20; bold: true; letterSpacing: 2 } }
             Label { id: fileNameHeader; text: qsTr("Untitled.kml"); color: window.muted; font.pixelSize: 13 }
             Item { Layout.fillWidth: true }
+            ToolButton {
+                text: qsTr("Settings");
+                font.pixelSize: 10;
+                ToolTip.visible: hovered;
+                ToolTip.text: qsTr("Mapie Settings");
+                onClicked: settingsPopup.open()
+            }
             ToolButton { text: "☼"; font.pixelSize: 22; ToolTip.visible: hovered; ToolTip.text: qsTr("Light mode"); onClicked: window.darkMode = false }
             ToolButton { text: "☾"; font.pixelSize: 21; ToolTip.visible: hovered; ToolTip.text: qsTr("Dark mode"); onClicked: window.darkMode = true }
             Button { text: qsTr("Open KML"); onClicked: openDialog.open() }
@@ -71,6 +109,23 @@ ApplicationWindow {
     }
 
     background: Rectangle { color: window.canvas }
+
+    Popup {
+        id: settingsPopup
+        x: window.width - width - 20
+        y: 70
+        width: 190
+        padding: 10
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        background: Rectangle { color: window.panel; border.color: window.border; radius: 8 }
+        contentItem: ColumnLayout {
+            spacing: 4
+            Label { text: qsTr("Map style"); color: window.muted; font.bold: true; Layout.leftMargin: 8; Layout.bottomMargin: 4 }
+            Button { text: qsTr("Clean"); highlighted: window.mapMode === "Clean"; Layout.fillWidth: true; onClicked: window.selectMapMode("Clean") }
+            Button { text: qsTr("Exploration"); highlighted: window.mapMode === "Exploration"; Layout.fillWidth: true; onClicked: window.selectMapMode("Exploration") }
+            Button { text: qsTr("Everything"); highlighted: window.mapMode === "Everything"; Layout.fillWidth: true; onClicked: window.selectMapMode("Everything") }
+        }
+    }
 
     RowLayout {
         anchors.fill: parent
