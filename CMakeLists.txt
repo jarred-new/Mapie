@@ -17,6 +17,8 @@ endif()
 
 qt_add_executable(appMapie
     main.cpp
+    KmlManager.cpp
+    KmlManager.h
 )
 
 qt_add_qml_module(appMapie

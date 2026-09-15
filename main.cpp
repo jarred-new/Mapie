@@ -1,11 +1,15 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
+#include "KmlManager.h"
+
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
 
+    KmlManager kmlManager;
     QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty("kmlManager", &kmlManager);
     QObject::connect(
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
