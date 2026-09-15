@@ -23,12 +23,8 @@ ApplicationWindow {
     property color accent: darkMode ? "#70d5c5" : "#087f73"
     property color border: darkMode ? "#30424c" : "#dce6e8"
     property var selectedPlace: null
-    property var lightMapType: null
-    property var darkMapType: null
     property string mapMode: "Clean"
-    property var cleanMapType: null
-    property var explorationMapType: null
-    property var everythingMapType: null
+    property var mapTypesByMode: ({})
 
     onDarkModeChanged: updateMapType()
 
@@ -41,38 +37,42 @@ ApplicationWindow {
         if (mapTypes.length === 0)
             return
 
-        let lightType = mapTypes[0]
-        let darkType = null
-        let terrainType = null
-        let hikingType = null
-        let satelliteType = null
+        let streetLight = mapTypes[0]
+        let streetDark = null
+        let explorationLight = null
+        let explorationDark = null
+        let everythingLight = null
+        let everythingDark = null
         for (const mapType of mapTypes) {
-            if (mapType.night)
-                darkType = mapType
-            else if (mapType.mapType === MapType.StreetMap)
-                lightType = mapType
-            else if (mapType.mapType === MapType.TerrainMap)
-                terrainType = mapType
-            else if (mapType.mapType === MapType.HikingMap)
-                hikingType = mapType
-            else if (mapType.mapType === MapType.SatelliteMap)
-                satelliteType = mapType
+            if (mapType.mapType === MapType.StreetMap) {
+                if (mapType.night)
+                    streetDark = mapType
+                else
+                    streetLight = mapType
+            } else if (mapType.mapType === MapType.HikingMap || mapType.mapType === MapType.TerrainMap) {
+                if (mapType.night)
+                    explorationDark = mapType
+                else if (!explorationLight)
+                    explorationLight = mapType
+            } else if (mapType.mapType === MapType.HybridMap || mapType.mapType === MapType.SatelliteMap) {
+                if (mapType.night)
+                    everythingDark = mapType
+                else if (!everythingLight)
+                    everythingLight = mapType
+            }
         }
-        window.lightMapType = lightType
-        window.darkMapType = darkType
-        window.cleanMapType = window.darkMode && darkType ? darkType : lightType
-        window.explorationMapType = terrainType || hikingType || lightType
-        window.everythingMapType = satelliteType || lightType
+        window.mapTypesByMode = {
+            Clean: { light: streetLight, dark: streetDark || streetLight },
+            Exploration: { light: explorationLight || streetLight, dark: explorationDark || streetDark || explorationLight || streetLight },
+            Everything: { light: everythingLight || streetLight, dark: everythingDark || streetDark || everythingLight || streetLight }
+        }
         window.applyMapMode()
     }
 
     function applyMapMode() {
-        if (window.mapMode === "Exploration")
-            mainMap.activeMapType = window.explorationMapType
-        else if (window.mapMode === "Everything")
-            mainMap.activeMapType = window.everythingMapType
-        else
-            mainMap.activeMapType = window.cleanMapType
+        const selectedTypes = window.mapTypesByMode[window.mapMode]
+        if (selectedTypes)
+            mainMap.activeMapType = window.darkMode ? selectedTypes.dark : selectedTypes.light
     }
 
     function selectMapMode(mode) {
@@ -193,6 +193,7 @@ ApplicationWindow {
                 MapItemView {
                     model: kmlManager.places
                     delegate: MapQuickItem {
+                        visible: window.mapMode !== "Clean"
                         coordinate: QtPositioning.coordinate(modelData.latitude, modelData.longitude)
                         anchorPoint.x: marker.width / 2
                         anchorPoint.y: marker.height
